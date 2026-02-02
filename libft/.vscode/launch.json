@@ -1,0 +1,30 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build-gnl",
+            "type": "shell",
+            "command": "cc",
+            "args": [
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-g",
+                "$1",
+                "-L.", "-lft",
+                "-o", "a.out"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            }
+        }
+    ]
+}
