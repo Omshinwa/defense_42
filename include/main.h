@@ -1,5 +1,6 @@
 #define WINDOW_X 800
 #define WINDOW_Y 600
+#define WINDOW_RATIO (float)WINDOW_X/(float)WINDOW_Y
 
 
 #include <math.h>
@@ -28,7 +29,7 @@ typedef struct s_camera {
     t_vec3	forward; // normalized direction vector
     t_vec3	right; // perpendicular to forward & up
     t_vec3	up; // camera's up direction
-    float	fov; // in degrees
+    int		fov; // in degrees
 } t_camera;
 
 typedef struct s_minilib_interface

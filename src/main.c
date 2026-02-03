@@ -12,7 +12,7 @@
 
 #include "../include/main.h"
 
-t_sphere g_s = {{1,1,1}, 2};
+t_sphere g_s = {{0,0,100}, 10};
 
 t_camera g_cam = {
 	{0,0,0},
@@ -38,7 +38,63 @@ float dot_product(t_vec3 a, t_vec3 b)
 	return (a.x*b.x + a.y*b.y + a.z*b.z);
 }
 
-int	calc_collision_sphere(t_app *app, int x, int y, t_sphere sphere)
+// get the position starting from the ray
+t_vec3	get_origin_of_ray(int pixel_x, int pixel_y)
+{
+	t_vec3 origin_of_ray; // POSITION of origin of ray
+	origin_of_ray = g_cam.pos;
+	// if isometrique view:
+	// origin_of_ray.x += (pixel_x - WINDOW_X/2);
+	// origin_of_ray.y += (pixel_y - WINDOW_Y/2);
+	return (origin_of_ray);
+}
+
+#include <math.h>
+// D est le vecteur directeur du rayon
+t_vec3	get_direction_vector(int pixel_x, int pixel_y)
+{
+	// D est le vecteur directeur du rayon
+	// t_vec3 D = g_cam.forward; 
+	// g_cam.fov
+
+	/* Build ray for pixel (x,y) in camera space using FOV */
+	float ndc_x = (2.0f * (pixel_x + 0.5f) / (float)WINDOW_X) - 1.0f; // -1..1
+	float ndc_y = 1.0f - (2.0f * (pixel_y + 0.5f) / (float)WINDOW_Y); // 1..-1 (flip y)
+	float aspect = (float)WINDOW_X / (float)WINDOW_Y;
+	float fov_rad = g_cam.fov * (M_PI / 180.0f);
+	float scale = tanf(fov_rad * 0.5f);
+
+	/* Point on the image plane at z = 1 in camera space */
+	float px = ndc_x * aspect * scale;
+	float py = ndc_y * scale;
+
+	// /* Ray origin (camera position) */
+	// t_vec3 origin_of_ray = g_cam.pos;
+
+	/* Ray direction in world space: px*right + py*up + forward */
+	t_vec3 D = (t_vec3){
+		px * g_cam.right.x + py * g_cam.up.x + g_cam.forward.x,
+		px * g_cam.right.y + py * g_cam.up.y + g_cam.forward.y,
+		px * g_cam.right.z + py * g_cam.up.z + g_cam.forward.z
+	};
+
+	/* normalize D */
+	float len = sqrtf(dot_product(D, D));
+	if (len != 0.0f)
+		D.x /= len; D.y /= len; D.z /= len;
+
+	return (D);
+}
+
+
+// A - B
+t_vec3 vec3_minus_op(t_vec3 a, t_vec3 b)
+{
+	return ((t_vec3) {a.x - b.x, a.y - b.y, a.z - b.z});
+}
+
+// Soit 
+float	calc_ray_x_sphere(t_app *app, int x, int y, t_sphere sphere)
 {
 	int		color;
 
@@ -47,24 +103,49 @@ int	calc_collision_sphere(t_app *app, int x, int y, t_sphere sphere)
 	float c;
 	float discriminant;
 
-	t_vec3 origin_of_ray; // POSITION of origin of ray
+	t_vec3 origin_of_ray = get_origin_of_ray(x, y);
+	t_vec3 D = get_direction_vector(x, y); // D est le vecteur directeur du rayon
 	t_vec3 L; // L est le vecteur du centre de la sphere a la camera
-	t_vec3 D = g_cam.forward; // D est le vecteur directeur du rayon
-	origin_of_ray = g_cam.pos;
-	origin_of_ray.x += x/1000;
-	origin_of_ray.y += y/1000;
-	L = (t_vec3){sphere.pos.x - g_cam.pos.x, sphere.pos.y - g_cam.pos.y, sphere.pos.z - g_cam.pos.z};
-	a=1;
-	b=2*dot_product(D, L);
-	c=dot_product(L,L) - sphere.r * sphere.r;
-	discriminant = b*b - 4 * a * c;
+	/* L = O - C */
+	L = vec3_minus_op(origin_of_ray, sphere.pos);
+
+	a = dot_product(D, D);
+	b = 2.0f * dot_product(D, L);
+	c = dot_product(L, L) - sphere.r * sphere.r;
+	discriminant = b * b - 4.0f * a * c;
 	// If Δ<0: no intersection
 	// If Δ=0: one intersection (tangent)
 	// If Δ>0: two intersections
-	if (discriminant>=0)
-		return (454545);
-	
-	return (0);
+
+	// If Δ>=0: compute roots and accept nearest positive t */
+	if (discriminant >= 0.0f)
+	{
+		float sqrt_d = sqrtf(discriminant);
+		float t0 = (-b - sqrt_d) / (2.0f * a);
+		float t1 = (-b + sqrt_d) / (2.0f * a);
+		/* choose nearest positive t */
+		float closest;
+		closest = -1.0f;
+		if (t0 > 0.0f)
+			closest = t0;
+		if (t1 > 0.0f && (closest < 0.0f || t1 < closest))
+			closest = t1;
+		return ((float) closest);
+	}
+	return (-1.0f);
+}
+
+int	calc_raytrace(t_app *app, int x, int y)
+{
+	float	intersection;
+
+	intersection = calc_ray_x_sphere(app, x, y, g_s);
+	int color = 0;
+	if (intersection >= 0.0f) {
+		int shade = (int)fmax(0, 255 - (int)(intersection * 0.4f));
+		color = (shade << 16) | (shade << 8) | shade; // gray
+	}
+	return (color);
 }
 
 // redraw the image
@@ -80,7 +161,7 @@ void redraw(t_app *app)
 		y = -1;
 		while(++y < WINDOW_Y)
 		{
-			color = calc_collision_sphere(app, x, y, g_s);
+			color = calc_raytrace(app, x, y);
 			set_image_pixel_at(app, x, y, color);
 		}
 	}
@@ -134,24 +215,30 @@ t_app	*create_app(void)
 	return (app);
 }
 
-//  █████   █████                   █████             
-// ▒▒███   ▒▒███                   ▒▒███              
-//  ▒███    ▒███   ██████   ██████  ▒███ █████  █████ 
-//  ▒███████████  ███▒▒███ ███▒▒███ ▒███▒▒███  ███▒▒  
-//  ▒███▒▒▒▒▒███ ▒███ ▒███▒███ ▒███ ▒██████▒  ▒▒█████ 
-//  ▒███    ▒███ ▒███ ▒███▒███ ▒███ ▒███▒▒███  ▒▒▒▒███
-//  █████   █████▒▒██████ ▒▒██████  ████ █████ ██████ 
-// ▒▒▒▒▒   ▒▒▒▒▒  ▒▒▒▒▒▒   ▒▒▒▒▒▒  ▒▒▒▒ ▒▒▒▒▒ ▒▒▒▒▒▒  
+//  █████   █████    ███████       ███████    █████   ████  █████████ 
+// ▒▒███   ▒▒███   ███▒▒▒▒▒███   ███▒▒▒▒▒███ ▒▒███   ███▒  ███▒▒▒▒▒███
+//  ▒███    ▒███  ███     ▒▒███ ███     ▒▒███ ▒███  ███   ▒███    ▒▒▒ 
+//  ▒███████████ ▒███      ▒███▒███      ▒███ ▒███████    ▒▒█████████ 
+//  ▒███▒▒▒▒▒███ ▒███      ▒███▒███      ▒███ ▒███▒▒███    ▒▒▒▒▒▒▒▒███
+//  ▒███    ▒███ ▒▒███     ███ ▒▒███     ███  ▒███ ▒▒███   ███    ▒███
+//  █████   █████ ▒▒▒███████▒   ▒▒▒███████▒   █████ ▒▒████▒▒█████████ 
+// ▒▒▒▒▒   ▒▒▒▒▒    ▒▒▒▒▒▒▒       ▒▒▒▒▒▒▒    ▒▒▒▒▒   ▒▒▒▒  ▒▒▒▒▒▒▒▒▒  
                                                    
 // keycodes (X11)
 # define ESC_KEY		65307
-# define ARROW_LEFT		65361
-# define ARROW_UP		65362
-# define ARROW_RIGHT	65363
-# define ARROW_DOWN		65364
 # define NUMPAD_PLUS	65451
 # define NUMPAD_MINUS	65453
-# define R_KEY			114
+# define KEY_R			114
+# define KEY_W			119
+# define KEY_S			115
+# define KEY_A			97
+# define KEY_D			100
+
+# define KEY_ARROW_LEFT		65361
+# define KEY_ARROW_UP		65362
+# define KEY_ARROW_RIGHT	65363
+# define KEY_ARROW_DOWN		65364
+
 // numpad keys
 # define NUMPAD_0		65438
 # define NUMPAD_1		65436
@@ -170,8 +257,26 @@ t_app	*create_app(void)
 # define MOUSE_WHEEL_UP	4
 # define MOUSE_WHEEL_DN	5
 
+#include <stdio.h>
+
+void print_cam(void)
+{
+	printf("pos: %f %f %f ", g_cam.pos.x, g_cam.pos.y, g_cam.pos.z);
+	printf("fov: %i \n", g_cam.fov);
+}
+
 int	on_mouse_input(int keycode, int mouse_x, int mouse_y, t_app *app)
 {
+	if (keycode == MOUSE_WHEEL_UP)
+		g_cam.fov += 10;
+	else if (keycode == MOUSE_WHEEL_DN)
+		g_cam.fov -= 10;
+	else if (keycode == MOUSE_LEFT)
+		printf("sphere: %f %f %f \n", g_s.pos.x, g_s.pos.y, g_s.pos.z);
+	else
+		printf("got %i key input \n", keycode);
+	redraw(app);
+	print_cam();
 	return (0);
 }
 
@@ -180,14 +285,37 @@ int	on_no_input(t_app *app)
 	return (0);
 }
 
+// This determines how much does a keypress moves the camera
+#define C_KEY_STRENGTH 10
+
 int	on_key_input(int keycode, t_app	*app)
 {
 	if (keycode == ESC_KEY)
 		exit_n_clean(app);
+	printf("got %i key input \n", keycode);
+	if (keycode == KEY_W)
+		g_cam.pos.z += C_KEY_STRENGTH;
+	else if (keycode == KEY_S)
+		g_cam.pos.z -= C_KEY_STRENGTH;
+	else if (keycode == KEY_A)
+		g_cam.pos.x -= C_KEY_STRENGTH * WINDOW_RATIO;
+	else if (keycode == KEY_D)
+		g_cam.pos.x += C_KEY_STRENGTH * WINDOW_RATIO;
+
+	else if (keycode == KEY_ARROW_UP)
+		g_cam.pos.y += C_KEY_STRENGTH;
+	else if (keycode == KEY_ARROW_DOWN)
+		g_cam.pos.y -= C_KEY_STRENGTH;
+	else if (keycode == KEY_ARROW_LEFT)
+		g_cam.pos.x -= C_KEY_STRENGTH * WINDOW_RATIO;
+	else if (keycode == KEY_ARROW_RIGHT)
+		g_cam.pos.x += C_KEY_STRENGTH * WINDOW_RATIO;
+	print_cam();
+	redraw(app);
 	return (0);
+	
 }
 
-#include <stdio.h>
 int main(void)
 {
 	t_app	*app;
