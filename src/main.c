@@ -14,13 +14,14 @@
 
 t_sphere g_s = {{0,0,100}, 10};
 
-t_camera g_cam = {
-	{0,0,0},
-	{0,0,1},
-	{1,0,0},
-	{0,1,0},
-	70
-};
+//  ██████████   ███████████     █████████   █████   ███   █████
+// ░░███░░░░███ ░░███░░░░░███   ███░░░░░███ ░░███   ░███  ░░███ 
+//  ░███   ░░███ ░███    ░███  ░███    ░███  ░███   ░███   ░███ 
+//  ░███    ░███ ░██████████   ░███████████  ░███   ░███   ░███ 
+//  ░███    ░███ ░███░░░░░███  ░███░░░░░███  ░░███  █████  ███  
+//  ░███    ███  ░███    ░███  ░███    ░███   ░░░█████░█████░   
+//  ██████████   █████   █████ █████   █████    ░░███ ░░███     
+// ░░░░░░░░░░   ░░░░░   ░░░░░ ░░░░░   ░░░░░      ░░░   ░░░      
 
 // Change the memory value in the image
 void	set_image_pixel_at(t_app *app, int x, int y, int color)
@@ -33,49 +34,52 @@ void	set_image_pixel_at(t_app *app, int x, int y, int color)
 	buffer[(y * app->size_line / bytes_per_pixel) + x] = color;
 }
 
+//  ██████   ██████   █████████   ███████████ █████   █████        
+// ░░██████ ██████   ███░░░░░███ ░█░░░███░░░█░░███   ░░███         
+//  ░███░█████░███  ░███    ░███ ░   ░███  ░  ░███    ░███   █████ 
+//  ░███░░███ ░███  ░███████████     ░███     ░███████████  ███░░  
+//  ░███ ░░░  ░███  ░███░░░░░███     ░███     ░███░░░░░███ ░░█████ 
+//  ░███      ░███  ░███    ░███     ░███     ░███    ░███  ░░░░███
+//  █████     █████ █████   █████    █████    █████   █████ ██████ 
+// ░░░░░     ░░░░░ ░░░░░   ░░░░░    ░░░░░    ░░░░░   ░░░░░ ░░░░░░  
+            
+#include <math.h>
+
+// Returns the dot product of two vectors
 float dot_product(t_vec3 a, t_vec3 b)
 {
 	return (a.x*b.x + a.y*b.y + a.z*b.z);
 }
 
-// get the position starting from the ray
-t_vec3	get_origin_of_ray(int pixel_x, int pixel_y)
+// Given a camera and a pixel position, returns D
+// D is the normalized directional vector from the camera to the pixel at z=1
+t_vec3	get_direction_vector(t_camera camera, int pixel_x, int pixel_y)
 {
-	t_vec3 origin_of_ray; // POSITION of origin of ray
-	origin_of_ray = g_cam.pos;
-	// if isometrique view:
-	// origin_of_ray.x += (pixel_x - WINDOW_X/2);
-	// origin_of_ray.y += (pixel_y - WINDOW_Y/2);
-	return (origin_of_ray);
-}
-
-#include <math.h>
-// D est le vecteur directeur du rayon
-t_vec3	get_direction_vector(int pixel_x, int pixel_y)
-{
-	// D est le vecteur directeur du rayon
-	// t_vec3 D = g_cam.forward; 
-	// g_cam.fov
-
-	/* Build ray for pixel (x,y) in camera space using FOV */
+	// Build ray for pixel (x,y) in camera space using FOV
+	// + 0.5f mean it's the center of the pixel
 	float ndc_x = (2.0f * (pixel_x + 0.5f) / (float)WINDOW_X) - 1.0f; // -1..1
-	float ndc_y = 1.0f - (2.0f * (pixel_y + 0.5f) / (float)WINDOW_Y); // 1..-1 (flip y)
+	float ndc_y = 1.0f - (2.0f * (pixel_y + 0.5f) / (float)WINDOW_Y); // 1..-1 (flip y)q
 	float aspect = (float)WINDOW_X / (float)WINDOW_Y;
-	float fov_rad = g_cam.fov * (M_PI / 180.0f);
+
+	// Correct implementation of FOV -> scaling for rays, though i dont
+	// really understand it. TODO
+	float fov_rad = camera.fov * (M_PI / 180.0f);
 	float scale = tanf(fov_rad * 0.5f);
+
+	// My naive implementation
+	// float scale = (float)app->global_cam.fov/100;
 
 	/* Point on the image plane at z = 1 in camera space */
 	float px = ndc_x * aspect * scale;
 	float py = ndc_y * scale;
 
-	// /* Ray origin (camera position) */
-	// t_vec3 origin_of_ray = g_cam.pos;
-
-	/* Ray direction in world space: px*right + py*up + forward */
+	// Rotate the points so that it matches the rotation of the camera.
+	// Ray direction in world space: px*right + py*up + pz*forward
+	// pz = 1 here:
 	t_vec3 D = (t_vec3){
-		px * g_cam.right.x + py * g_cam.up.x + g_cam.forward.x,
-		px * g_cam.right.y + py * g_cam.up.y + g_cam.forward.y,
-		px * g_cam.right.z + py * g_cam.up.z + g_cam.forward.z
+		px * camera.right.x + py * camera.up.x + camera.forward.x,
+		px * camera.right.y + py * camera.up.y + camera.forward.y,
+		px * camera.right.z + py * camera.up.z + camera.forward.z
 	};
 
 	/* normalize D */
@@ -93,7 +97,8 @@ t_vec3 vec3_minus_op(t_vec3 a, t_vec3 b)
 	return ((t_vec3) {a.x - b.x, a.y - b.y, a.z - b.z});
 }
 
-// Soit 
+// Given a sphere, a camera and the pixel to draw
+// Find the closest point t 
 float	calc_ray_x_sphere(t_app *app, int x, int y, t_sphere sphere)
 {
 	int		color;
@@ -103,8 +108,8 @@ float	calc_ray_x_sphere(t_app *app, int x, int y, t_sphere sphere)
 	float c;
 	float discriminant;
 
-	t_vec3 origin_of_ray = get_origin_of_ray(x, y);
-	t_vec3 D = get_direction_vector(x, y); // D est le vecteur directeur du rayon
+	t_vec3 origin_of_ray = app->global_cam.pos;
+	t_vec3 D = get_direction_vector(app->global_cam, x, y); // D est le vecteur directeur du rayon
 	t_vec3 L; // L est le vecteur du centre de la sphere a la camera
 	/* L = O - C */
 	L = vec3_minus_op(origin_of_ray, sphere.pos);
@@ -212,6 +217,9 @@ t_app	*create_app(void)
 	app->first_pixel = p;
 	if (!app->first_pixel)
 		exit_n_clean(app);
+
+	// init objects
+	app->global_cam = (t_camera){{0,0,0}, {0,0,1}, {1,0,0}, {0,1,0}, 70};
 	return (app);
 }
 
@@ -259,24 +267,24 @@ t_app	*create_app(void)
 
 #include <stdio.h>
 
-void print_cam(void)
+void print_cam(t_app *app)
 {
-	printf("pos: %f %f %f ", g_cam.pos.x, g_cam.pos.y, g_cam.pos.z);
-	printf("fov: %i \n", g_cam.fov);
+	printf("pos: %f %f %f ", app->global_cam.pos.x, app->global_cam.pos.y, app->global_cam.pos.z);
+	printf("fov: %i \n", app->global_cam.fov);
 }
 
 int	on_mouse_input(int keycode, int mouse_x, int mouse_y, t_app *app)
 {
 	if (keycode == MOUSE_WHEEL_UP)
-		g_cam.fov += 10;
+		app->global_cam.fov += 10;
 	else if (keycode == MOUSE_WHEEL_DN)
-		g_cam.fov -= 10;
+		app->global_cam.fov -= 10;
 	else if (keycode == MOUSE_LEFT)
 		printf("sphere: %f %f %f \n", g_s.pos.x, g_s.pos.y, g_s.pos.z);
 	else
 		printf("got %i key input \n", keycode);
 	redraw(app);
-	print_cam();
+	print_cam(app);
 	return (0);
 }
 
@@ -294,23 +302,23 @@ int	on_key_input(int keycode, t_app	*app)
 		exit_n_clean(app);
 	printf("got %i key input \n", keycode);
 	if (keycode == KEY_W)
-		g_cam.pos.z += C_KEY_STRENGTH;
+		app->global_cam.pos.z += C_KEY_STRENGTH;
 	else if (keycode == KEY_S)
-		g_cam.pos.z -= C_KEY_STRENGTH;
+		app->global_cam.pos.z -= C_KEY_STRENGTH;
 	else if (keycode == KEY_A)
-		g_cam.pos.x -= C_KEY_STRENGTH * WINDOW_RATIO;
+		app->global_cam.pos.x -= C_KEY_STRENGTH * WINDOW_RATIO;
 	else if (keycode == KEY_D)
-		g_cam.pos.x += C_KEY_STRENGTH * WINDOW_RATIO;
+		app->global_cam.pos.x += C_KEY_STRENGTH * WINDOW_RATIO;
 
 	else if (keycode == KEY_ARROW_UP)
-		g_cam.pos.y += C_KEY_STRENGTH;
+		app->global_cam.pos.y += C_KEY_STRENGTH;
 	else if (keycode == KEY_ARROW_DOWN)
-		g_cam.pos.y -= C_KEY_STRENGTH;
+		app->global_cam.pos.y -= C_KEY_STRENGTH;
 	else if (keycode == KEY_ARROW_LEFT)
-		g_cam.pos.x -= C_KEY_STRENGTH * WINDOW_RATIO;
+		app->global_cam.pos.x -= C_KEY_STRENGTH * WINDOW_RATIO;
 	else if (keycode == KEY_ARROW_RIGHT)
-		g_cam.pos.x += C_KEY_STRENGTH * WINDOW_RATIO;
-	print_cam();
+		app->global_cam.pos.x += C_KEY_STRENGTH * WINDOW_RATIO;
+	print_cam(app);
 	redraw(app);
 	return (0);
 	

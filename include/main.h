@@ -57,9 +57,10 @@ typedef struct s_app
 
 	struct timeval	time;
 
-	// liste des objets a dessiner
-
+	t_camera		global_cam;
 	// pointeur a la camera
+
+	// liste des objets a dessiner
 
 	// liste des lumieres
 
