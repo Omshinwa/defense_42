@@ -2,6 +2,41 @@
 #define WINDOW_Y 600
 #define WINDOW_RATIO (float)WINDOW_X/(float)WINDOW_Y
 
+// keycodes (X11)
+# define ESC_KEY		65307
+# define NUMPAD_PLUS	65451
+# define NUMPAD_MINUS	65453
+# define KEY_R			114
+# define KEY_W			119
+# define KEY_S			115
+# define KEY_A			97
+# define KEY_D			100
+
+# define KEY_ARROW_LEFT		65361
+# define KEY_ARROW_UP		65362
+# define KEY_ARROW_RIGHT	65363
+# define KEY_ARROW_DOWN		65364
+
+// numpad keys
+# define NUMPAD_0		65438
+# define NUMPAD_1		65436
+# define NUMPAD_2		65433
+# define NUMPAD_3		65435
+# define NUMPAD_4		65430
+# define NUMPAD_5		65437
+# define NUMPAD_6		65432
+# define NUMPAD_7		65429
+# define NUMPAD_DIV		65455
+# define NUMPAD_MUL		65450
+// mouse buttons
+# define MOUSE_LEFT		1
+# define MOUSE_MIDDLE	2
+# define MOUSE_RIGHT	3
+# define MOUSE_WHEEL_UP	4
+# define MOUSE_WHEEL_DN	5
+
+// This determines how much does a keypress moves the camera
+#define C_KEY_STRENGTH 10
 
 #include <math.h>
 # include <stdlib.h>

@@ -14,26 +14,6 @@
 
 t_sphere g_s = {{0,0,100}, 10};
 
-//  ██████████   ███████████     █████████   █████   ███   █████
-// ░░███░░░░███ ░░███░░░░░███   ███░░░░░███ ░░███   ░███  ░░███ 
-//  ░███   ░░███ ░███    ░███  ░███    ░███  ░███   ░███   ░███ 
-//  ░███    ░███ ░██████████   ░███████████  ░███   ░███   ░███ 
-//  ░███    ░███ ░███░░░░░███  ░███░░░░░███  ░░███  █████  ███  
-//  ░███    ███  ░███    ░███  ░███    ░███   ░░░█████░█████░   
-//  ██████████   █████   █████ █████   █████    ░░███ ░░███     
-// ░░░░░░░░░░   ░░░░░   ░░░░░ ░░░░░   ░░░░░      ░░░   ░░░      
-
-// Change the memory value in the image
-void	set_image_pixel_at(t_app *app, int x, int y, int color)
-{
-	int	*buffer;
-	int	bytes_per_pixel;
-
-	bytes_per_pixel = app->pixel_depth / 8;
-	buffer = (int *)app->first_pixel;
-	buffer[(y * app->size_line / bytes_per_pixel) + x] = color;
-}
-
 //  ██████   ██████   █████████   ███████████ █████   █████        
 // ░░██████ ██████   ███░░░░░███ ░█░░░███░░░█░░███   ░░███         
 //  ░███░█████░███  ░███    ░███ ░   ░███  ░  ░███    ░███   █████ 
@@ -63,9 +43,8 @@ t_vec3	get_direction_vector(t_camera camera, int pixel_x, int pixel_y)
 
 	// Correct implementation of FOV -> scaling for rays, though i dont
 	// really understand it. TODO
-	float fov_rad = camera.fov * (M_PI / 180.0f);
+	float fov_rad = camera.fov * (3.14159265358979323846 / 180.0f);
 	float scale = tanf(fov_rad * 0.5f);
-
 	// My naive implementation
 	// float scale = (float)app->global_cam.fov/100;
 
@@ -85,7 +64,9 @@ t_vec3	get_direction_vector(t_camera camera, int pixel_x, int pixel_y)
 	/* normalize D */
 	float len = sqrtf(dot_product(D, D));
 	if (len != 0.0f)
+	{
 		D.x /= len; D.y /= len; D.z /= len;
+	}
 
 	return (D);
 }
@@ -145,12 +126,34 @@ int	calc_raytrace(t_app *app, int x, int y)
 	float	intersection;
 
 	intersection = calc_ray_x_sphere(app, x, y, g_s);
+	
 	int color = 0;
 	if (intersection >= 0.0f) {
-		int shade = (int)fmax(0, 255 - (int)(intersection * 0.4f));
+		int shade = (int)fmax(0, 255 - (int)(intersection));
 		color = (shade << 16) | (shade << 8) | shade; // gray
+		// color = (0xFFFFFF - (int)(intersection*intersection*100));
 	}
 	return (color);
+}
+
+//  ██████████   ███████████     █████████   █████   ███   █████
+// ░░███░░░░███ ░░███░░░░░███   ███░░░░░███ ░░███   ░███  ░░███ 
+//  ░███   ░░███ ░███    ░███  ░███    ░███  ░███   ░███   ░███ 
+//  ░███    ░███ ░██████████   ░███████████  ░███   ░███   ░███ 
+//  ░███    ░███ ░███░░░░░███  ░███░░░░░███  ░░███  █████  ███  
+//  ░███    ███  ░███    ░███  ░███    ░███   ░░░█████░█████░   
+//  ██████████   █████   █████ █████   █████    ░░███ ░░███     
+// ░░░░░░░░░░   ░░░░░   ░░░░░ ░░░░░   ░░░░░      ░░░   ░░░      
+
+// Change the memory value in the image
+void	set_image_pixel_at(t_app *app, int x, int y, int color)
+{
+	int	*buffer;
+	int	bytes_per_pixel;
+
+	bytes_per_pixel = app->pixel_depth / 8;
+	buffer = (int *)app->first_pixel;
+	buffer[(y * app->size_line / bytes_per_pixel) + x] = color;
 }
 
 // redraw the image
@@ -173,6 +176,15 @@ void redraw(t_app *app)
 	mlx_put_image_to_window(app->mlx_ptr, app->win_ptr, app->img_ptr, 0, 0);
 }
 
+//    █████████   ███████████  ███████████ 
+//   ███░░░░░███ ░░███░░░░░███░░███░░░░░███
+//  ░███    ░███  ░███    ░███ ░███    ░███
+//  ░███████████  ░██████████  ░██████████ 
+//  ░███░░░░░███  ░███░░░░░░   ░███░░░░░░  
+//  ░███    ░███  ░███         ░███        
+//  █████   █████ █████        █████       
+// ░░░░░   ░░░░░ ░░░░░        ░░░░░        
+                                        
 
 // Whenever a malloc fail, we exit and free everything
 int	exit_n_clean(t_app *app)
@@ -232,39 +244,6 @@ t_app	*create_app(void)
 //  █████   █████ ▒▒▒███████▒   ▒▒▒███████▒   █████ ▒▒████▒▒█████████ 
 // ▒▒▒▒▒   ▒▒▒▒▒    ▒▒▒▒▒▒▒       ▒▒▒▒▒▒▒    ▒▒▒▒▒   ▒▒▒▒  ▒▒▒▒▒▒▒▒▒  
                                                    
-// keycodes (X11)
-# define ESC_KEY		65307
-# define NUMPAD_PLUS	65451
-# define NUMPAD_MINUS	65453
-# define KEY_R			114
-# define KEY_W			119
-# define KEY_S			115
-# define KEY_A			97
-# define KEY_D			100
-
-# define KEY_ARROW_LEFT		65361
-# define KEY_ARROW_UP		65362
-# define KEY_ARROW_RIGHT	65363
-# define KEY_ARROW_DOWN		65364
-
-// numpad keys
-# define NUMPAD_0		65438
-# define NUMPAD_1		65436
-# define NUMPAD_2		65433
-# define NUMPAD_3		65435
-# define NUMPAD_4		65430
-# define NUMPAD_5		65437
-# define NUMPAD_6		65432
-# define NUMPAD_7		65429
-# define NUMPAD_DIV		65455
-# define NUMPAD_MUL		65450
-// mouse buttons
-# define MOUSE_LEFT		1
-# define MOUSE_MIDDLE	2
-# define MOUSE_RIGHT	3
-# define MOUSE_WHEEL_UP	4
-# define MOUSE_WHEEL_DN	5
-
 #include <stdio.h>
 
 void print_cam(t_app *app)
@@ -276,9 +255,9 @@ void print_cam(t_app *app)
 int	on_mouse_input(int keycode, int mouse_x, int mouse_y, t_app *app)
 {
 	if (keycode == MOUSE_WHEEL_UP)
-		app->global_cam.fov += 10;
+		app->global_cam.pos.z += C_KEY_STRENGTH;
 	else if (keycode == MOUSE_WHEEL_DN)
-		app->global_cam.fov -= 10;
+		app->global_cam.pos.z -= C_KEY_STRENGTH;
 	else if (keycode == MOUSE_LEFT)
 		printf("sphere: %f %f %f \n", g_s.pos.x, g_s.pos.y, g_s.pos.z);
 	else
@@ -292,9 +271,6 @@ int	on_no_input(t_app *app)
 {
 	return (0);
 }
-
-// This determines how much does a keypress moves the camera
-#define C_KEY_STRENGTH 10
 
 int	on_key_input(int keycode, t_app	*app)
 {
@@ -318,6 +294,12 @@ int	on_key_input(int keycode, t_app	*app)
 		app->global_cam.pos.x -= C_KEY_STRENGTH * WINDOW_RATIO;
 	else if (keycode == KEY_ARROW_RIGHT)
 		app->global_cam.pos.x += C_KEY_STRENGTH * WINDOW_RATIO;
+
+	// FOV
+	else if (keycode == NUMPAD_PLUS)
+		app->global_cam.fov += 10;
+	else if (keycode == NUMPAD_MINUS)
+		app->global_cam.fov -= 10;
 	print_cam(app);
 	redraw(app);
 	return (0);
