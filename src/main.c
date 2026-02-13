@@ -13,6 +13,7 @@
 #include "../include/main.h"
 
 t_sphere g_s = {{0,0,100}, 10};
+t_sphere g_light = {{0,20,100}, 10};
 
 //  ██████   ██████   █████████   ███████████ █████   █████        
 // ░░██████ ██████   ███░░░░░███ ░█░░░███░░░█░░███   ░░███         
@@ -26,11 +27,22 @@ t_sphere g_s = {{0,0,100}, 10};
 #include <math.h>
 
 // Returns the dot product of two vectors
-float dot_product(t_vec3 a, t_vec3 b)
+float dot_product(t_vec3 a, t_vec3 b) { return (a.x*b.x + a.y*b.y + a.z*b.z); }
+// A + B
+t_vec3 vec3_add_op(t_vec3 a, t_vec3 b) { return (t_vec3){a.x + b.x, a.y + b.y, a.z + b.z}; }
+// V*s
+t_vec3 vec3_scale_op(t_vec3 v, float s) { return (t_vec3){v.x * s, v.y * s, v.z * s}; }
+// A - B
+t_vec3 vec3_minus_op(t_vec3 a, t_vec3 b) { return ((t_vec3) {a.x - b.x, a.y - b.y, a.z - b.z}); }
+// uses srqt
+float vec3_length(t_vec3 v) { return sqrtf(dot_product(v, v)); }
+// Return normalized V, uses sqrt
+t_vec3 vec3_normalize(t_vec3 v)
 {
-	return (a.x*b.x + a.y*b.y + a.z*b.z);
+	float l = vec3_length(v);
+	if (l == 0.0f) return v;
+	return vec3_scale_op(v, 1.0f / l);
 }
-
 // Given a camera and a pixel position, returns D
 // D is the normalized directional vector from the camera to the pixel at z=1
 t_vec3	get_direction_vector(t_camera camera, int pixel_x, int pixel_y)
@@ -38,7 +50,30 @@ t_vec3	get_direction_vector(t_camera camera, int pixel_x, int pixel_y)
 	// Build ray for pixel (x,y) in camera space using FOV
 	// + 0.5f mean it's the center of the pixel
 	float ndc_x = (2.0f * (pixel_x + 0.5f) / (float)WINDOW_X) - 1.0f; // -1..1
-	float ndc_y = 1.0f - (2.0f * (pixel_y + 0.5f) / (float)WINDOW_Y); // 1..-1 (flip y)q
+	float ndc_y = 1.0f - (2.0f * (pixel_y + 0.5f) / (float)WINDOW_Y); // 1..-1
+	// (flip y), we do this because screen's Y axis points down
+	// but the camera / math Y axis points up.
+	//
+	// window screen:
+	//
+	//	  (0,0) ─────────▶ x
+	// 		│
+	// 		│
+	// 		▼
+	// 		y
+	//
+	// camera / world / math space:
+	//
+	//		+Y (up)
+	//		  ▲
+	//		  |
+	//		  |
+	//		  └────▶ +X
+	//		 /
+	//		/
+	// +Z (forward)
+	//
+
 	float aspect = (float)WINDOW_X / (float)WINDOW_Y;
 
 	// Correct implementation of FOV -> scaling for rays, though i dont
@@ -62,70 +97,42 @@ t_vec3	get_direction_vector(t_camera camera, int pixel_x, int pixel_y)
 	};
 
 	/* normalize D */
-	float len = sqrtf(dot_product(D, D));
-	if (len != 0.0f)
-	{
-		D.x /= len; D.y /= len; D.z /= len;
-	}
-
-	return (D);
+	return (vec3_normalize(D));
 }
 
-
-// A - B
-t_vec3 vec3_minus_op(t_vec3 a, t_vec3 b)
+// Arguments:
+//    ORIGIN and D (direction vector) of a ray: defined as origin + D*t, t is time
+//    a sphere
+// Returns the nearest collision point t, or -1 if None
+float	intersect_sphere(t_vec3 origin, t_vec3 D, t_sphere sphere)
 {
-	return ((t_vec3) {a.x - b.x, a.y - b.y, a.z - b.z});
-}
-
-// Given a sphere, a camera and the pixel to draw
-// Find the closest point t 
-float	calc_ray_x_sphere(t_app *app, int x, int y, t_sphere sphere)
-{
-	int		color;
-
-	float a;
-	float b;
-	float c;
-	float discriminant;
-
-	t_vec3 origin_of_ray = app->global_cam.pos;
-	t_vec3 D = get_direction_vector(app->global_cam, x, y); // D est le vecteur directeur du rayon
-	t_vec3 L; // L est le vecteur du centre de la sphere a la camera
-	/* L = O - C */
-	L = vec3_minus_op(origin_of_ray, sphere.pos);
-
-	a = dot_product(D, D);
-	b = 2.0f * dot_product(D, L);
-	c = dot_product(L, L) - sphere.r * sphere.r;
-	discriminant = b * b - 4.0f * a * c;
+	// L est le vecteur du centre de la sphere a la camera
+	// L = O - C
+	t_vec3 L = vec3_minus_op(origin, sphere.pos);
+	float a = dot_product(D, D);
+	float b = 2.0f * dot_product(D, L);
+	float c = dot_product(L, L) - sphere.r * sphere.r;
+	float disc = b * b - 4.0f * a * c;
 	// If Δ<0: no intersection
 	// If Δ=0: one intersection (tangent)
 	// If Δ>0: two intersections
-
-	// If Δ>=0: compute roots and accept nearest positive t */
-	if (discriminant >= 0.0f)
-	{
-		float sqrt_d = sqrtf(discriminant);
-		float t0 = (-b - sqrt_d) / (2.0f * a);
-		float t1 = (-b + sqrt_d) / (2.0f * a);
-		/* choose nearest positive t */
-		float closest;
-		closest = -1.0f;
-		if (t0 > 0.0f)
-			closest = t0;
-		if (t1 > 0.0f && (closest < 0.0f || t1 < closest))
-			closest = t1;
-		return ((float) closest);
-	}
-	return (-1.0f);
+    if (disc < 0.0f) return -1.0f;
+	float sqrt_d = sqrtf(disc);
+	float t0 = (-b - sqrt_d) / (2.0f * a);
+	float t1 = (-b + sqrt_d) / (2.0f * a);
+	/* choose nearest positive t */
+    float t = -1.0f;
+    if (t0 > 0.0f) t = t0;
+    if (t1 > 0.0f && (t < 0.0f || t1 < t)) t = t1;
+    return t;
 }
 
 int	calc_raytrace(t_app *app, int x, int y)
 {
 	float	intersection;
-
-	intersection = calc_ray_x_sphere(app, x, y, g_s);
+	t_camera cam = app->global_cam;
+	
+	intersection = intersect_sphere(cam.pos, get_direction_vector(cam, x, y), g_s);
 	
 	int color = 0;
 	if (intersection >= 0.0f) {
