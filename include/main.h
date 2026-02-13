@@ -51,12 +51,44 @@ typedef struct s_vec3 {
 	float z;
 } t_vec3;
 
+// One other second-degree object: cone, hyperboloid, paraboloid..
+typedef enum e_obj_type {
+	OBJ_PLANE,
+	OBJ_SPHERE,
+	OBJ_CYLINDER,
+} t_obj_type;
+
 // Sphere is defined by the center point and the radius
 typedef struct s_sphere
 {
 	t_vec3	pos;
 	float	r;
 } t_sphere;
+
+typedef struct s_plane
+{
+	t_vec3	pos;
+	t_vec3 normal;
+} t_plane;
+
+typedef struct s_cylinder {
+	t_vec3	pos;
+	t_vec3 axis;
+	float radius;
+	float height;
+} t_cylinder;
+
+typedef union u_any_obj {
+  t_sphere sp;
+  t_plane pl;
+  t_cylinder cy;
+} t_any_obj;
+
+typedef struct s_list_container {
+	t_obj_type	type;
+	t_any_obj	obj;
+	struct s_object	*next;
+} t_list_container;
 
 // Camera is defined by a bunch of stuff i dont understand
 typedef struct s_camera {
@@ -96,6 +128,7 @@ typedef struct s_app
 	// pointeur a la camera
 
 	// liste des objets a dessiner
+	t_node_obj		
 
 	// liste des lumieres
 
